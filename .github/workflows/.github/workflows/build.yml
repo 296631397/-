@@ -1,0 +1,47 @@
+name: build-widget-appex
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphone
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build extension
+        run: |
+          xcodebuild \
+            -project RedCalendarWidget.xcodeproj \
+            -target RedCalendarWidgetExtension \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Collect .appex
+        run: |
+          mkdir -p out
+          cp -R "build/Build/Products/Release-iphoneos/RedCalendarWidgetExtension.appex" out/
+          ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RedCalendarWidgetExtension
+          path: out/RedCalendarWidgetExtension.appex
