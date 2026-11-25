@@ -1,51 +1,49 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 import Foundation
-
-// MARK: - 三个可调字号
 
 struct FontSizeIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "字体大小"
-    static var description = IntentDescription("分别调节年月、农历、正文字号，在默认值基础上可 +1 ~ +5")
+    static var description: IntentDescription? = IntentDescription("分别调节年月、农历、正文字号")
 
-    @Parameter(title: "年月字号", description: "默认 20", default: 20, inclusiveRange: 20...25)
+    @Parameter(title: "年月字号", default: 20)
     var titleSize: Int
 
-    @Parameter(title: "农历字号", description: "默认 11", default: 11, inclusiveRange: 11...16)
+    @Parameter(title: "农历字号", default: 11)
     var lunarSize: Int
 
-    @Parameter(title: "正文字号", description: "默认 12", default: 12, inclusiveRange: 12...17)
+    @Parameter(title: "正文字号", default: 12)
     var bodySize: Int
-
-    init() {}
 }
 
-// MARK: - Entry
+enum FontMetrics {
+    static func clamp(_ v: Int, _ lo: Int, _ hi: Int) -> Int {
+        min(max(v, lo), hi)
+    }
+    static func title(_ i: FontSizeIntent) -> CGFloat { CGFloat(clamp(i.titleSize, 18, 28)) }
+    static func lunar(_ i: FontSizeIntent) -> CGFloat { CGFloat(clamp(i.lunarSize, 9, 17)) }
+    static func body(_ i: FontSizeIntent)  -> CGFloat { CGFloat(clamp(i.bodySize, 10, 18)) }
+}
 
 struct MonthEntry: TimelineEntry {
     let date: Date
     let configuration: FontSizeIntent
 }
 
-// MARK: - Provider
-
 struct MonthProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> MonthEntry {
         MonthEntry(date: .now, configuration: FontSizeIntent())
     }
-
     func snapshot(for configuration: FontSizeIntent, in context: Context) async -> MonthEntry {
         MonthEntry(date: .now, configuration: configuration)
     }
-
     func timeline(for configuration: FontSizeIntent, in context: Context) async -> Timeline<MonthEntry> {
         let next = Calendar.current.date(byAdding: .hour, value: 1, to: .now) ?? .now
         return Timeline(entries: [MonthEntry(date: .now, configuration: configuration)],
                         policy: .after(next))
     }
 }
-
-// MARK: - Widget
 
 struct RedCalendarWidget: Widget {
     let kind = "RedCalendarMonthWidget"
@@ -65,12 +63,8 @@ struct RedCalendarWidget: Widget {
 
 @main
 struct RedCalendarWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        RedCalendarWidget()
-    }
+    var body: some Widget { RedCalendarWidget() }
 }
-
-// MARK: - 视图
 
 struct DayInfo: Hashable {
     let day: Int
@@ -101,11 +95,11 @@ struct MonthView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(monthTitle)
-                .font(.system(size: CGFloat(entry.configuration.titleSize), weight: .bold))
+                .font(.system(size: FontMetrics.title(entry.configuration), weight: .bold))
                 .foregroundColor(.white)
             Spacer(minLength: 6)
             Text(lunarTitle)
-                .font(.system(size: CGFloat(entry.configuration.lunarSize)))
+                .font(.system(size: FontMetrics.lunar(entry.configuration)))
                 .foregroundColor(.white.opacity(0.88))
         }
     }
@@ -114,7 +108,7 @@ struct MonthView: View {
         HStack(spacing: 0) {
             ForEach(["日","一","二","三","四","五","六"], id: \.self) { w in
                 Text(w)
-                    .font(.system(size: max(CGFloat(entry.configuration.bodySize) - 3, 6)))
+                    .font(.system(size: max(FontMetrics.body(entry.configuration) - 3, 6)))
                     .foregroundColor(.white.opacity(0.9))
                     .frame(maxWidth: .infinity)
             }
@@ -130,7 +124,7 @@ struct MonthView: View {
     }
 
     private func dayCell(_ d: DayInfo) -> some View {
-        let size = CGFloat(entry.configuration.bodySize)
+        let size = FontMetrics.body(entry.configuration)
         return VStack(spacing: 0) {
             Text("\(d.day)")
                 .font(.system(size: size, weight: d.isToday ? .bold : .regular))
@@ -145,8 +139,6 @@ struct MonthView: View {
         .background(d.isToday ? Color.red : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
-
-    // MARK: - 数据
 
     private var monthTitle: String {
         let c = calendar.dateComponents([.year, .month], from: entry.date)
