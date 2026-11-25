@@ -1,3 +1,27 @@
+name: build-widget-appex
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphone
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
       - name: Build extension
         run: |
           xcodebuild \
@@ -21,3 +45,8 @@
           if [ -z "$APPEX" ]; then echo "未找到 appex"; exit 1; fi
           cp -R "$APPEX" out/
           ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RedCalendarWidgetExtension
+          path: out/RedCalendarWidgetExtension.appex
